@@ -135,3 +135,29 @@ export function useCreateLog(
 
   return { saveLog, isSaving, error };
 }
+
+export function useDeleteLog(
+  worldId: string,
+  setLogs: React.Dispatch<React.SetStateAction<Log[]>>,
+) {
+  const { withLoading } = useLoading();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const deleteLog = async (logId: string) => {
+    if (!logId) return;
+    try {
+      setIsDeleting(true);
+      await withLoading(async () => {
+        const res = await fetch(`/api/worlds/${worldId}/logs/${logId}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) throw new Error("Failed to delete");
+        setLogs((current) => current.filter((log) => log._id !== logId));
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return { deleteLog, isDeleting };
+}

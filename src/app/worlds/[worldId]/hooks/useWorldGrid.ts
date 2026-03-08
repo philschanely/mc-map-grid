@@ -1,20 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GridRange } from "../types";
+import type { Log } from "../types";
 
 const CELL_SIZE = 48;
 const GAP = 4;
 const SENTINEL_SIZE = 16;
-const EXPAND_AMOUNT = 12;
+const PADDING = 3;
+const DEFAULT_EXTENT = 5;
 
-export function useWorldGrid(world: { _id: string } | null) {
-  const [gridRange, setGridRange] = useState<GridRange>({
-    minNs: -4,
-    maxNs: 4,
-    minEw: -4,
-    maxEw: 4,
-  });
+function computeGridRange(logs: Log[]): GridRange {
+  if (logs.length === 0) {
+    return {
+      minNs: -DEFAULT_EXTENT,
+      maxNs: DEFAULT_EXTENT,
+      minEw: -DEFAULT_EXTENT,
+      maxEw: DEFAULT_EXTENT,
+    };
+  }
+
+  const minEw = Math.min(...logs.map((l) => l.xBucket)) - PADDING;
+  const maxEw = Math.max(...logs.map((l) => l.xBucket)) + PADDING;
+  const minNs = Math.min(...logs.map((l) => l.yBucket)) - PADDING;
+  const maxNs = Math.max(...logs.map((l) => l.yBucket)) + PADDING;
+
+  return { minNs, maxNs, minEw, maxEw };
+}
+
+export function useWorldGrid(world: { _id: string } | null, logs: Log[]) {
+  const gridRange = useMemo(() => computeGridRange(logs), [logs]);
   const [selectedCell, setSelectedCell] = useState<{
     xBucket: number;
     yBucket: number;
@@ -24,27 +39,6 @@ export function useWorldGrid(world: { _id: string } | null) {
     yBucket: number;
   } | null>(null);
   const gridScrollRef = useRef<HTMLDivElement>(null);
-  const lastExpandRef = useRef<Record<string, number>>({});
-  const pendingGoToRef = useRef<{ xBucket: number; yBucket: number } | null>(
-    null,
-  );
-
-  const expandGrid = useCallback((direction: "north" | "south" | "east" | "west") => {
-    setGridRange((prev) => {
-      switch (direction) {
-        case "north":
-          return { ...prev, minNs: prev.minNs - EXPAND_AMOUNT };
-        case "south":
-          return { ...prev, maxNs: prev.maxNs + EXPAND_AMOUNT };
-        case "east":
-          return { ...prev, maxEw: prev.maxEw + EXPAND_AMOUNT };
-        case "west":
-          return { ...prev, minEw: prev.minEw - EXPAND_AMOUNT };
-        default:
-          return prev;
-      }
-    });
-  }, []);
 
   const scrollToCell = useCallback(
     (cell: { xBucket: number; yBucket: number }) => {
@@ -83,113 +77,33 @@ export function useWorldGrid(world: { _id: string } | null) {
 
       if (inRange) {
         scrollToCell(cell);
-        return;
       }
-
-      pendingGoToRef.current = cell;
-      const buffer = 2;
-      setGridRange((prev) => ({
-        minNs: Math.min(prev.minNs, cell.yBucket - buffer),
-        maxNs: Math.max(prev.maxNs, cell.yBucket + buffer),
-        minEw: Math.min(prev.minEw, cell.xBucket - buffer),
-        maxEw: Math.max(prev.maxEw, cell.xBucket + buffer),
-      }));
     },
     [gridRange, scrollToCell],
   );
 
   useEffect(() => {
-    const pending = pendingGoToRef.current;
-    if (!pending) return;
-
-    const inRange =
-      pending.yBucket >= gridRange.minNs &&
-      pending.yBucket <= gridRange.maxNs &&
-      pending.xBucket >= gridRange.minEw &&
-      pending.xBucket <= gridRange.maxEw;
-
-    if (inRange) {
-      pendingGoToRef.current = null;
-      scrollToCell(pending);
-    }
-  }, [gridRange, scrollToCell]);
-
-  useEffect(() => {
     const el = gridScrollRef.current;
     if (!el || !world) return;
 
-    const row = 0 - gridRange.minNs;
-    const col = 0 - gridRange.minEw;
+    const originInRange =
+      gridRange.minNs <= 0 &&
+      gridRange.maxNs >= 0 &&
+      gridRange.minEw <= 0 &&
+      gridRange.maxEw >= 0;
+
+    const row = originInRange
+      ? 0 - gridRange.minNs
+      : Math.floor((gridRange.minNs + gridRange.maxNs) / 2) - gridRange.minNs;
+    const col = originInRange
+      ? 0 - gridRange.minEw
+      : Math.floor((gridRange.minEw + gridRange.maxEw) / 2) - gridRange.minEw;
+
     const top = SENTINEL_SIZE + row * (CELL_SIZE + GAP);
     const left = SENTINEL_SIZE + col * (CELL_SIZE + GAP);
     el.scrollTop = Math.max(0, top - el.clientHeight / 2 + CELL_SIZE / 2);
     el.scrollLeft = Math.max(0, left - el.clientWidth / 2 + CELL_SIZE / 2);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when world loads
-  }, [world]);
-
-  useEffect(() => {
-    const el = gridScrollRef.current;
-    if (!el) return;
-
-    const ensureOverflow = () => {
-      const { scrollHeight, clientHeight, scrollWidth, clientWidth } = el;
-      const needsVertical = scrollHeight <= clientHeight;
-      const needsHorizontal = scrollWidth <= clientWidth;
-      if (needsVertical) expandGrid("south");
-      if (needsHorizontal) expandGrid("east");
-    };
-
-    const raf = requestAnimationFrame(() => {
-      ensureOverflow();
-    });
-
-    const observer = new ResizeObserver(() => {
-      requestAnimationFrame(ensureOverflow);
-    });
-    observer.observe(el);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      observer.disconnect();
-    };
-  }, [world, expandGrid, gridRange]);
-
-  useEffect(() => {
-    const el = gridScrollRef.current;
-    if (!el) return;
-
-    const edgeThreshold = 100;
-    const throttleMs = 200;
-
-    const handleScroll = () => {
-      const now = Date.now();
-      const { scrollTop, scrollLeft, scrollHeight, clientHeight, scrollWidth, clientWidth } = el;
-      const canExpandNorth = scrollHeight > clientHeight;
-      const canExpandSouth = scrollHeight > clientHeight;
-      const canExpandWest = scrollWidth > clientWidth;
-      const canExpandEast = scrollWidth > clientWidth;
-
-      if (canExpandNorth && scrollTop < edgeThreshold && (now - (lastExpandRef.current.north ?? 0)) > throttleMs) {
-        lastExpandRef.current.north = now;
-        expandGrid("north");
-      }
-      if (canExpandSouth && scrollTop + clientHeight > scrollHeight - edgeThreshold && (now - (lastExpandRef.current.south ?? 0)) > throttleMs) {
-        lastExpandRef.current.south = now;
-        expandGrid("south");
-      }
-      if (canExpandWest && scrollLeft < edgeThreshold && (now - (lastExpandRef.current.west ?? 0)) > throttleMs) {
-        lastExpandRef.current.west = now;
-        expandGrid("west");
-      }
-      if (canExpandEast && scrollLeft + clientWidth > scrollWidth - edgeThreshold && (now - (lastExpandRef.current.east ?? 0)) > throttleMs) {
-        lastExpandRef.current.east = now;
-        expandGrid("east");
-      }
-    };
-
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [world, expandGrid]);
+  }, [world, gridRange]);
 
   return {
     gridRange,
@@ -199,7 +113,6 @@ export function useWorldGrid(world: { _id: string } | null) {
     gridScrollRef,
     scrollToCell,
     goToCell,
-    expandGrid,
     cellSize: CELL_SIZE,
     gap: GAP,
   };

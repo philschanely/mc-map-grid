@@ -2,7 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { ObjectId } from "mongodb";
 import { authOptions } from "@/lib/auth";
-import { getWorldsCollection, type WorldDocument } from "@/lib/db";
+import {
+  getWorldsCollection,
+  getLogsCollection,
+  type WorldDocument,
+} from "@/lib/db";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -11,18 +15,35 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const collection = await getWorldsCollection();
-  const docs = await collection
+  const [worldsCollection, logsCollection] = await Promise.all([
+    getWorldsCollection(),
+    getLogsCollection(),
+  ]);
+
+  const docs = await worldsCollection
     .find({ userId: session.user.id })
     .sort({ createdAt: -1 })
     .toArray();
 
+  const logCounts = await logsCollection
+    .aggregate<{ _id: string; count: number }>([
+      { $match: { userId: session.user.id } },
+      { $group: { _id: "$worldId", count: { $sum: 1 } } },
+    ])
+    .toArray();
+
+  const countByWorldId = new Map(
+    logCounts.map((c) => [c._id, c.count]),
+  );
+
   const serialized = docs.map((doc) => {
     const d = doc as WorldDocument & { _id?: ObjectId; createdAt: Date };
+    const worldId = d._id?.toString();
     return {
       ...d,
-      _id: d._id?.toString(),
+      _id: worldId,
       createdAt: d.createdAt?.toISOString?.() ?? new Date().toISOString(),
+      logCount: worldId ? (countByWorldId.get(worldId) ?? 0) : 0,
     };
   });
 

@@ -30,42 +30,22 @@ export function MapGrid({
   const rows = gridRange.maxNs - gridRange.minNs + 1;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col gap-2">
-      <div className="flex shrink-0 items-center gap-2">
-        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-          Map grid
-        </h2>
-        <button
-          type="button"
-          onClick={() => scrollToCell({ xBucket: 0, yBucket: 0 })}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-        >
-          Origin
-        </button>
-        <button
-          type="button"
-          onClick={() => selectedCell && scrollToCell(selectedCell)}
-          disabled={!selectedCell}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-        >
-          Selected
-        </button>
-      </div>
+    <div className="flex h-full min-h-0 w-full flex-col">
       <div
         ref={gridScrollRef}
-        className="min-h-0 flex-1 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800"
+        className="relative flex min-h-0 flex-1 flex-col overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800"
       >
-        <div className="h-4 w-full shrink-0" aria-hidden />
-        <div className="flex">
-          <div className="h-4 w-4 shrink-0" aria-hidden />
-          <div
-            className="inline-grid shrink-0"
-            style={{
-              gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
-              gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
-              gap,
-            }}
-          >
+        <div className="flex min-h-full min-w-full flex-1 items-center justify-center p-4">
+          <div className="flex shrink-0">
+            <div className="h-4 w-4 shrink-0" aria-hidden />
+            <div
+              className="inline-grid shrink-0"
+              style={{
+                gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
+                gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
+                gap,
+              }}
+            >
             {Array.from({ length: rows * cols }, (_, i) => {
               const row = Math.floor(i / cols);
               const col = i % cols;
@@ -104,22 +84,20 @@ export function MapGrid({
                       isSelected ? null : { xBucket: ewValue, yBucket: nsValue },
                     )
                   }
-                  className={`relative flex flex-col items-center justify-center overflow-hidden rounded px-0.5 py-0.5 text-center transition-colors ${
+                  className={`relative flex flex-col items-center justify-center overflow-hidden rounded px-0.5 py-0.5 text-center transition-colors border-zinc-200 bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 ${
                     isZeroCell ? "border-2" : "border"
                   } ${
                     isSelected
-                      ? "ring-2 ring-amber-500 ring-offset-1 dark:ring-offset-zinc-950"
-                      : ""
-                  } ${
-                    hasLog
-                      ? "border-amber-500 bg-amber-100 text-amber-900 hover:bg-amber-200 dark:border-amber-400 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
-                      : "border-zinc-200 bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                      ? "border-blue-500 ring-2 ring-blue-500 ring-offset-1 dark:border-blue-400 dark:ring-blue-400 dark:ring-offset-zinc-950"
+                      : hasLog
+                        ? "border-zinc-400 dark:border-zinc-600"
+                        : ""
                   }`}
                   style={{ width: cellSize, height: cellSize }}
                 >
                   {isFlashing && (
                     <span
-                      className="cell-shimmer absolute inset-0 bg-amber-300/70 dark:bg-amber-400/50"
+                      className="cell-shimmer absolute inset-0 bg-blue-300/70 dark:bg-blue-400/50"
                       aria-hidden
                     />
                   )}
@@ -134,10 +112,27 @@ export function MapGrid({
                 </button>
               );
             })}
+            </div>
+            <div className="h-4 w-4 shrink-0" aria-hidden />
           </div>
-          <div className="h-4 w-4 shrink-0" aria-hidden />
         </div>
-        <div className="h-4 w-full shrink-0" aria-hidden />
+        <div className="absolute bottom-3 right-3 z-10 flex gap-2 rounded-md border border-zinc-200 bg-white/95 px-2 py-1.5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95">
+          <button
+            type="button"
+            onClick={() => scrollToCell({ xBucket: 0, yBucket: 0 })}
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          >
+            Origin
+          </button>
+          <button
+            type="button"
+            onClick={() => selectedCell && scrollToCell(selectedCell)}
+            disabled={!selectedCell}
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          >
+            Selected
+          </button>
+        </div>
       </div>
     </div>
   );
