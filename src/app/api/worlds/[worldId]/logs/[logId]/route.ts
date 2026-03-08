@@ -108,3 +108,38 @@ export async function PATCH(
         : String(doc.createdAt),
   });
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ worldId: string; logId: string }> },
+) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { worldId, logId } = await params;
+
+  if (!ObjectId.isValid(logId)) {
+    return NextResponse.json({ error: "Invalid log ID" }, { status: 400 });
+  }
+
+  const world = await ensureWorldAccess(worldId, session.user.id);
+  if (!world) {
+    return NextResponse.json({ error: "World not found" }, { status: 404 });
+  }
+
+  const collection = await getLogsCollection();
+  const result = await collection.deleteOne({
+    _id: new ObjectId(logId),
+    worldId,
+    userId: session.user.id,
+  });
+
+  if (result.deletedCount === 0) {
+    return NextResponse.json({ error: "Log not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

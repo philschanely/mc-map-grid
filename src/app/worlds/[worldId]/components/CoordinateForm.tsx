@@ -2,7 +2,6 @@
 
 import type { FormEvent } from "react";
 import { Field, Input, Label } from "@headlessui/react";
-import { bucketCoordinateFromString } from "@/lib/coordinates";
 import { useCoordinateDisplay } from "../hooks";
 
 type CoordinateFormProps = {
@@ -15,7 +14,6 @@ type CoordinateFormProps = {
   z: string;
   setZ: (v: string) => void;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
-  onGoToCoordinates?: () => void;
   isSaving: boolean;
   error: string | null;
   variant?: "default" | "bar";
@@ -31,7 +29,6 @@ export function CoordinateForm({
   z,
   setZ,
   onSubmit,
-  onGoToCoordinates,
   isSaving,
   error,
   variant = "default",
@@ -93,18 +90,6 @@ export function CoordinateForm({
             />
           </div>
           <div className="flex w-full gap-2 md:w-auto md:contents">
-            <button
-              type="button"
-              onClick={onGoToCoordinates}
-              disabled={
-                !onGoToCoordinates ||
-                bucketCoordinateFromString(x) === null ||
-                bucketCoordinateFromString(z) === null
-              }
-              className="h-8 shrink-0 rounded border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-            >
-              Go to
-            </button>
             <button
               type="submit"
               disabled={isSaving}
@@ -194,19 +179,6 @@ export function CoordinateForm({
       )}
 
       <div className="flex justify-end gap-2">
-        {onGoToCoordinates && (
-          <button
-            type="button"
-            onClick={onGoToCoordinates}
-            disabled={
-              bucketCoordinateFromString(x) === null ||
-              bucketCoordinateFromString(z) === null
-            }
-            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-          >
-            Go to coordinates
-          </button>
-        )}
         <button
           type="submit"
           disabled={isSaving}
